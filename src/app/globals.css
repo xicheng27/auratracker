@@ -6,10 +6,10 @@
   --color-card-hover: #161616;
   --color-foreground: #ffffff;
   --color-muted: #a1a1aa;
-  --color-accent: #8b5cf6;
-  --color-accent-soft: #a78bfa;
-  --color-positive: #22c55e;
-  --color-negative: #ef4444;
+  --color-accent: #ffffff;
+  --color-accent-soft: #d4d4d8;
+  --color-positive: #fafafa;
+  --color-negative: #71717a;
   --color-edge: #27272a;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }

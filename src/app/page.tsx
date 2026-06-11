@@ -69,13 +69,13 @@ function PostPreviewCard({ post }: { post: PreviewPost }) {
       <div className="mt-4 flex gap-2">
         <button
           type="button"
-          className="flex-1 rounded-xl border border-positive/30 bg-positive/10 py-2 text-sm font-semibold text-positive transition-colors hover:bg-positive/20"
+          className="flex-1 rounded-xl bg-foreground py-2 text-sm font-semibold text-background transition-colors hover:bg-accent-soft"
         >
           + Aura
         </button>
         <button
           type="button"
-          className="flex-1 rounded-xl border border-negative/30 bg-negative/10 py-2 text-sm font-semibold text-negative transition-colors hover:bg-negative/20"
+          className="flex-1 rounded-xl border border-edge py-2 text-sm font-semibold text-muted transition-colors hover:bg-card-hover hover:text-foreground"
         >
           − Aura
         </button>
@@ -138,7 +138,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/signup"
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold transition-colors hover:bg-accent-soft"
+              className="rounded-xl bg-accent text-background px-4 py-2 text-sm font-semibold transition-colors hover:bg-accent-soft"
             >
               Sign up
             </Link>
@@ -161,7 +161,7 @@ export default function LandingPage() {
           <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row">
             <Link
               href="/signup"
-              className="w-full rounded-2xl bg-accent px-8 py-3.5 text-base font-semibold shadow-[0_0_30px_-5px] shadow-accent/60 transition-all hover:bg-accent-soft hover:shadow-accent/80 sm:w-auto"
+              className="w-full rounded-2xl bg-accent text-background px-8 py-3.5 text-base font-semibold shadow-[0_0_30px_-5px] shadow-accent/60 transition-all hover:bg-accent-soft hover:shadow-accent/80 sm:w-auto"
             >
               Start tracking your aura
             </Link>
@@ -229,7 +229,7 @@ export default function LandingPage() {
                 </p>
                 <Link
                   href="/signup"
-                  className="mt-6 inline-block rounded-2xl bg-accent px-6 py-3 text-sm font-semibold transition-colors hover:bg-accent-soft"
+                  className="mt-6 inline-block rounded-2xl bg-accent text-background px-6 py-3 text-sm font-semibold transition-colors hover:bg-accent-soft"
                 >
                   Create your group
                 </Link>
@@ -286,7 +286,7 @@ export default function LandingPage() {
           </p>
           <Link
             href="/signup"
-            className="mt-8 inline-block rounded-2xl bg-accent px-10 py-4 text-base font-semibold shadow-[0_0_40px_-5px] shadow-accent/60 transition-all hover:bg-accent-soft hover:shadow-accent/80"
+            className="mt-8 inline-block rounded-2xl bg-accent text-background px-10 py-4 text-base font-semibold shadow-[0_0_40px_-5px] shadow-accent/60 transition-all hover:bg-accent-soft hover:shadow-accent/80"
           >
             Sign up free
           </Link>
