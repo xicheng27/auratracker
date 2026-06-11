@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #050505;
+  --color-card: #111111;
+  --color-card-hover: #161616;
+  --color-foreground: #ffffff;
+  --color-muted: #a1a1aa;
+  --color-accent: #8b5cf6;
+  --color-accent-soft: #a78bfa;
+  --color-positive: #22c55e;
+  --color-negative: #ef4444;
+  --color-edge: #27272a;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+@keyframes aura-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes aura-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.aura-pulse {
+  animation: aura-pulse 5s ease-in-out infinite;
+}
+
+.aura-float {
+  animation: aura-float 6s ease-in-out infinite;
+}
+
+.aura-float-delayed {
+  animation: aura-float 6s ease-in-out 3s infinite;
+}
