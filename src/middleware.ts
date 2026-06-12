@@ -7,6 +7,7 @@ const protectedPrefixes = [
   "/post/new",
   "/groups",
   "/profile",
+  "/friends",
   "/notifications",
   "/settings",
   "/onboarding",

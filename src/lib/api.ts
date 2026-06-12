@@ -1,6 +1,14 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { mockComments, type PostComment } from "@/lib/mock-comments";
 import {
+  mockFriends,
+  mockFriendRequests,
+  type FriendEntry,
+  type FriendRequest,
+  type FriendStatus,
+  type UserSearchResult,
+} from "@/lib/mock-friends";
+import {
   mockMembers,
   mockPrivatePosts,
   type GroupMember,
@@ -103,6 +111,21 @@ export async function uploadImage(
   return { url: data.publicUrl };
 }
 
+async function fetchFriendIdSet(userId: string): Promise<Set<string>> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return new Set();
+  const { data } = await supabase
+    .from("friendships")
+    .select("requester_id, receiver_id")
+    .eq("status", "accepted")
+    .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`);
+  return new Set(
+    (data ?? []).map((f) =>
+      f.requester_id === userId ? f.receiver_id : f.requester_id,
+    ),
+  );
+}
+
 // ============================================================
 // Public posts
 // ============================================================
@@ -114,7 +137,7 @@ export async function fetchPublicPosts(): Promise<PublicPost[]> {
     supabase
       .from("public_posts")
       .select(
-        "id, title, description, category, image_url, up_votes_count, down_votes_count, created_at, profiles(username, profile_image_url), public_comments(count)",
+        "id, user_id, title, description, category, image_url, up_votes_count, down_votes_count, created_at, profiles(username, profile_image_url), public_comments(count)",
       )
       .eq("status", "active")
       .order("created_at", { ascending: false })
@@ -124,14 +147,19 @@ export async function fetchPublicPosts(): Promise<PublicPost[]> {
   if (!rows) return [];
 
   let myVotes: Record<string, Vote> = {};
+  let friendIds = new Set<string>();
   if (user) {
-    const { data: votes } = await supabase
-      .from("public_votes")
-      .select("post_id, vote_type")
-      .eq("voter_id", user.id);
+    const [{ data: votes }, friends] = await Promise.all([
+      supabase
+        .from("public_votes")
+        .select("post_id, vote_type")
+        .eq("voter_id", user.id),
+      fetchFriendIdSet(user.id),
+    ]);
     myVotes = Object.fromEntries(
       (votes ?? []).map((v) => [v.post_id, v.vote_type === "aura_up" ? "up" : "down"]),
     );
+    friendIds = friends;
   }
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -146,7 +174,7 @@ export async function fetchPublicPosts(): Promise<PublicPost[]> {
     upVotes: row.up_votes_count,
     downVotes: row.down_votes_count,
     comments: row.public_comments?.[0]?.count ?? 0,
-    isFriend: false, // Friends system lands later.
+    isFriend: friendIds.has(row.user_id),
     myVote: myVotes[row.id] ?? null,
     imageUrl: row.image_url,
     avatarUrl: row.profiles?.profile_image_url ?? null,
@@ -704,6 +732,8 @@ export async function fetchLeaderboard(): Promise<{
     return { rankings: mockRankings, controversial: mostControversialPost };
   }
 
+  const me = await getCurrentUser();
+  const friendIds = me ? await fetchFriendIdSet(me.id) : new Set<string>();
   const startOfDay = `${todayUtc()}T00:00:00Z`;
   const [{ data: profiles }, { data: todayHistory }, { data: votedPosts }] =
     await Promise.all([
@@ -746,7 +776,7 @@ export async function fetchLeaderboard(): Promise<{
       totalAura: p.total_public_aura,
       todayChange: todayChange[p.id] ?? 0,
       streakDays: 0, // Streaks aren't tracked globally yet.
-      isFriend: false, // Friends system lands later.
+      isFriend: friendIds.has(p.id),
     })),
     controversial: controversialRow
       ? {
@@ -758,6 +788,202 @@ export async function fetchLeaderboard(): Promise<{
       : null,
   };
   /* eslint-enable @typescript-eslint/no-explicit-any */
+}
+
+// ============================================================
+// Friends
+// ============================================================
+export async function fetchFriends(): Promise<FriendEntry[]> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return mockFriends;
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const { data: rows } = await supabase
+    .from("friendships")
+    .select("id, requester_id, receiver_id")
+    .eq("status", "accepted")
+    .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
+  if (!rows || rows.length === 0) return [];
+
+  const otherIds = rows.map((f) =>
+    f.requester_id === user.id ? f.receiver_id : f.requester_id,
+  );
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, profile_image_url, total_public_aura")
+    .in("id", otherIds);
+
+  return rows.flatMap((f) => {
+    const otherId = f.requester_id === user.id ? f.receiver_id : f.requester_id;
+    const profile = (profiles ?? []).find((p) => p.id === otherId);
+    if (!profile) return [];
+    return [{
+      friendshipId: f.id,
+      userId: profile.id,
+      username: profile.username,
+      displayName: profile.display_name || profile.username,
+      avatarUrl: profile.profile_image_url,
+      totalAura: profile.total_public_aura,
+    }];
+  });
+}
+
+export async function fetchFriendRequests(): Promise<FriendRequest[]> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return mockFriendRequests;
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const { data: rows } = await supabase
+    .from("friendships")
+    .select("id, requester_id, receiver_id")
+    .eq("status", "pending")
+    .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
+  if (!rows || rows.length === 0) return [];
+
+  const otherIds = rows.map((f) =>
+    f.requester_id === user.id ? f.receiver_id : f.requester_id,
+  );
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, profile_image_url")
+    .in("id", otherIds);
+
+  return rows.flatMap((f) => {
+    const incoming = f.receiver_id === user.id;
+    const otherId = incoming ? f.requester_id : f.receiver_id;
+    const profile = (profiles ?? []).find((p) => p.id === otherId);
+    if (!profile) return [];
+    return [{
+      friendshipId: f.id,
+      userId: profile.id,
+      username: profile.username,
+      displayName: profile.display_name || profile.username,
+      avatarUrl: profile.profile_image_url,
+      direction: incoming ? ("incoming" as const) : ("outgoing" as const),
+    }];
+  });
+}
+
+export async function searchUsers(query: string): Promise<UserSearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    const friendUsernames = new Set(mockFriends.map((f) => f.username));
+    const requestByUsername = new Map(
+      mockFriendRequests.map((r) => [r.username, r.direction]),
+    );
+    return mockRankings
+      .filter(
+        (u) =>
+          u.username.toLowerCase().includes(trimmed.toLowerCase()) ||
+          u.displayName.toLowerCase().includes(trimmed.toLowerCase()),
+      )
+      .slice(0, 10)
+      .map((u) => ({
+        userId: u.username,
+        username: u.username,
+        displayName: u.displayName,
+        avatarUrl: null,
+        totalAura: u.totalAura,
+        status:
+          u.username === mockProfile.username
+            ? ("self" as const)
+            : friendUsernames.has(u.username)
+              ? ("friends" as const)
+              : requestByUsername.get(u.username) === "incoming"
+                ? ("incoming" as const)
+                : requestByUsername.get(u.username) === "outgoing"
+                  ? ("outgoing" as const)
+                  : ("none" as const),
+      }));
+  }
+
+  const user = await getCurrentUser();
+  const escaped = trimmed.replace(/[%_,]/g, "");
+  const [{ data: profiles }, { data: friendships }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, profile_image_url, total_public_aura")
+      .or(`username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`)
+      .limit(10),
+    user
+      ? supabase
+          .from("friendships")
+          .select("requester_id, receiver_id, status")
+          .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  function statusFor(otherId: string): FriendStatus {
+    if (user && otherId === user.id) return "self";
+    const match = (friendships ?? []).find(
+      (f) => f.requester_id === otherId || f.receiver_id === otherId,
+    );
+    if (!match || match.status === "rejected") return "none";
+    if (match.status === "accepted") return "friends";
+    if (match.status === "blocked") return "none";
+    return match.requester_id === otherId ? "incoming" : "outgoing";
+  }
+
+  return (profiles ?? []).map((p) => ({
+    userId: p.id,
+    username: p.username,
+    displayName: p.display_name || p.username,
+    avatarUrl: p.profile_image_url,
+    totalAura: p.total_public_aura,
+    status: statusFor(p.id),
+  }));
+}
+
+export async function sendFriendRequest(
+  targetUserId: string,
+): Promise<{ error?: string }> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return {};
+  const user = await getCurrentUser();
+  if (!user) return { error: "Log in first." };
+
+  const { data: existing } = await supabase
+    .from("friendships")
+    .select("id, status")
+    .or(
+      `and(requester_id.eq.${user.id},receiver_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},receiver_id.eq.${user.id})`,
+    )
+    .maybeSingle();
+  if (existing && existing.status !== "rejected") {
+    return { error: "There's already a request between you two." };
+  }
+
+  const { error } = await supabase.from("friendships").insert({
+    requester_id: user.id,
+    receiver_id: targetUserId,
+  });
+  return error ? { error: error.message } : {};
+}
+
+export async function respondToFriendRequest(
+  friendshipId: string,
+  accept: boolean,
+): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return;
+  await supabase
+    .from("friendships")
+    .update({
+      status: accept ? "accepted" : "rejected",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", friendshipId);
+}
+
+export async function removeFriendship(friendshipId: string): Promise<void> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return;
+  await supabase.from("friendships").delete().eq("id", friendshipId);
 }
 
 // ============================================================
@@ -782,11 +1008,14 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
     title: n.title,
     message: n.message,
     timeAgo: timeAgo(n.created_at),
-    href: n.related_group_id
-      ? `/groups/${n.related_group_id}`
-      : n.related_post_id
-        ? `/post/${n.related_post_id}`
-        : "/feed",
+    href:
+      n.type === "friend_request" || n.type === "friend_accepted"
+        ? "/friends"
+        : n.related_group_id
+          ? `/groups/${n.related_group_id}`
+          : n.related_post_id
+            ? `/post/${n.related_post_id}`
+            : "/feed",
     unread: !n.is_read,
   }));
 }

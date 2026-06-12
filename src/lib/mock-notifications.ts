@@ -6,7 +6,9 @@ export type NotificationType =
   | "friend_posted_about_you"
   | "aura_updated"
   | "trending_post"
-  | "daily_reminder";
+  | "daily_reminder"
+  | "friend_request"
+  | "friend_accepted";
 
 export type AppNotification = {
   id: string;
@@ -27,6 +29,8 @@ export const notificationIcons: Record<NotificationType, string> = {
   aura_updated: "✦",
   trending_post: "📈",
   daily_reminder: "⏰",
+  friend_request: "🤝",
+  friend_accepted: "🎉",
 };
 
 // Placeholder notifications until they come from the database.

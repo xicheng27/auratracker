@@ -119,12 +119,20 @@ export default function ProfilePage() {
                 </span>
               </div>
             </div>
-            <Link
-              href="/settings"
-              className="rounded-xl border border-edge px-3 py-2 text-xs font-medium text-muted transition-colors hover:text-foreground"
-            >
-              Edit profile
-            </Link>
+            <div className="flex shrink-0 flex-col gap-2">
+              <Link
+                href="/settings"
+                className="rounded-xl border border-edge px-3 py-2 text-center text-xs font-medium text-muted transition-colors hover:text-foreground"
+              >
+                Edit profile
+              </Link>
+              <Link
+                href="/friends"
+                className="rounded-xl border border-edge px-3 py-2 text-center text-xs font-medium text-muted transition-colors hover:text-foreground"
+              >
+                Friends
+              </Link>
+            </div>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-muted">
             {profile.bio}
