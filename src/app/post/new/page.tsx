@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
-import { createPublicPost, hasPostedToday } from "@/lib/api";
+import { createPublicPost, hasPostedToday, uploadImage } from "@/lib/api";
 
 const categories = [
   "Social",
@@ -29,6 +29,7 @@ export default function CreatePublicPostPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [postedToday, setPostedToday] = useState(false);
@@ -42,6 +43,7 @@ export default function CreatePublicPostPage() {
     if (!file) return;
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(URL.createObjectURL(file));
+    setImageFile(file);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -51,11 +53,21 @@ export default function CreatePublicPostPage() {
       return;
     }
     setSubmitting(true);
-    // TODO: upload the image to Supabase Storage and save its URL.
+    let imageUrl: string | null = null;
+    if (imageFile) {
+      const upload = await uploadImage("post-images", imageFile);
+      if (upload.error) {
+        setTitleError(upload.error);
+        setSubmitting(false);
+        return;
+      }
+      imageUrl = upload.url ?? null;
+    }
     const { error } = await createPublicPost({
       title: title.trim(),
       description: description.trim(),
       category,
+      imageUrl,
     });
     if (error) {
       setTitleError(error);
@@ -206,6 +218,7 @@ export default function CreatePublicPostPage() {
                   onClick={() => {
                     URL.revokeObjectURL(imagePreview);
                     setImagePreview(null);
+                    setImageFile(null);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                   className="absolute top-2 right-2 rounded-full bg-background/80 px-3 py-1 text-xs font-medium backdrop-blur transition-colors hover:bg-background"

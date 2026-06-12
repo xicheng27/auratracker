@@ -43,9 +43,18 @@ export function TopNav() {
           <Link
             href="/profile"
             aria-label="Your profile"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-card text-sm font-semibold"
+            className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-edge bg-card text-sm font-semibold"
           >
-            {currentUser?.displayName[0] ?? "·"}
+            {currentUser?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={currentUser.avatarUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              (currentUser?.displayName[0] ?? "·")
+            )}
           </Link>
         </div>
       </div>

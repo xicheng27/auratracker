@@ -23,9 +23,11 @@ export type CurrentUser = {
   username: string;
   displayName: string;
   totalAura: number;
+  avatarUrl: string | null;
 };
 
 export type ProfileData = typeof mockProfile & {
+  avatarUrl: string | null;
   groupAura: { id: string; name: string; icon: string; myAura: number }[];
 };
 
@@ -60,6 +62,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       username: mockProfile.username,
       displayName: mockProfile.displayName,
       totalAura: mockProfile.totalPublicAura,
+      avatarUrl: null,
     };
   }
   const {
@@ -68,7 +71,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!user) return null;
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, total_public_aura")
+    .select("username, display_name, total_public_aura, profile_image_url")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile) return null;
@@ -77,7 +80,27 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     username: profile.username,
     displayName: profile.display_name || profile.username,
     totalAura: profile.total_public_aura,
+    avatarUrl: profile.profile_image_url,
   };
+}
+
+// ============================================================
+// Image uploads
+// ============================================================
+export async function uploadImage(
+  bucket: "avatars" | "post-images",
+  file: File,
+): Promise<{ url?: string; error?: string }> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return {}; // Mock mode: nothing to upload.
+  const user = await getCurrentUser();
+  if (!user) return { error: "Log in first." };
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(bucket).upload(path, file);
+  if (error) return { error: error.message };
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return { url: data.publicUrl };
 }
 
 // ============================================================
@@ -91,7 +114,7 @@ export async function fetchPublicPosts(): Promise<PublicPost[]> {
     supabase
       .from("public_posts")
       .select(
-        "id, title, description, category, up_votes_count, down_votes_count, created_at, profiles(username), public_comments(count)",
+        "id, title, description, category, image_url, up_votes_count, down_votes_count, created_at, profiles(username, profile_image_url), public_comments(count)",
       )
       .eq("status", "active")
       .order("created_at", { ascending: false })
@@ -125,6 +148,8 @@ export async function fetchPublicPosts(): Promise<PublicPost[]> {
     comments: row.public_comments?.[0]?.count ?? 0,
     isFriend: false, // Friends system lands later.
     myVote: myVotes[row.id] ?? null,
+    imageUrl: row.image_url,
+    avatarUrl: row.profiles?.profile_image_url ?? null,
   }));
   /* eslint-enable @typescript-eslint/no-explicit-any */
 }
@@ -147,6 +172,7 @@ export async function createPublicPost(input: {
   title: string;
   description: string;
   category: string | null;
+  imageUrl?: string | null;
 }): Promise<{ error?: string }> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return {};
@@ -157,6 +183,7 @@ export async function createPublicPost(input: {
     title: input.title,
     description: input.description,
     category: input.category,
+    image_url: input.imageUrl ?? null,
   });
   if (error) {
     return {
@@ -204,7 +231,7 @@ export async function fetchPostDetail(
   const { data: row } = await supabase
     .from("public_posts")
     .select(
-      "id, title, description, category, up_votes_count, down_votes_count, created_at, profiles(username)",
+      "id, title, description, category, image_url, up_votes_count, down_votes_count, created_at, profiles(username, profile_image_url)",
     )
     .eq("id", id)
     .neq("status", "removed")
@@ -248,6 +275,8 @@ export async function fetchPostDetail(
       comments: commentRows?.length ?? 0,
       isFriend: false,
       myVote,
+      imageUrl: r.image_url,
+      avatarUrl: r.profiles?.profile_image_url ?? null,
     },
     comments: (commentRows ?? []).map((c: any) => ({
       id: c.id,
@@ -431,7 +460,7 @@ export async function fetchGroupDetail(id: string): Promise<{
     supabase
       .from("private_posts")
       .select(
-        "id, post_type, description, up_votes_count, down_votes_count, created_at, posted_by:profiles!private_posts_posted_by_user_id_fkey(username), target:profiles!private_posts_target_user_id_fkey(username), private_comments(count)",
+        "id, post_type, description, image_url, up_votes_count, down_votes_count, created_at, posted_by:profiles!private_posts_posted_by_user_id_fkey(username), target:profiles!private_posts_target_user_id_fkey(username), private_comments(count)",
       )
       .eq("group_id", id)
       .neq("status", "removed")
@@ -489,6 +518,7 @@ export async function fetchGroupDetail(id: string): Promise<{
       comments: p.private_comments?.[0]?.count ?? 0,
       timeAgo: timeAgo(p.created_at),
       myVote: myVotes[p.id] ?? null,
+      imageUrl: p.image_url,
     })),
   };
   /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -522,6 +552,7 @@ export async function createIncident(input: {
   targetUserId: string;
   type: "self_post" | "friend_post";
   description: string;
+  imageUrl?: string | null;
 }): Promise<{ error?: string }> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return {};
@@ -533,6 +564,7 @@ export async function createIncident(input: {
     target_user_id: input.type === "self_post" ? user.id : input.targetUserId,
     post_type: input.type,
     description: input.description,
+    image_url: input.imageUrl ?? null,
   });
   return error ? { error: error.message } : {};
 }
@@ -545,6 +577,7 @@ export async function fetchProfileData(): Promise<ProfileData | null> {
   if (!supabase) {
     return {
       ...mockProfile,
+      avatarUrl: null,
       groupAura: mockGroups.map((g) => ({
         id: g.id,
         name: g.name,
@@ -567,7 +600,7 @@ export async function fetchProfileData(): Promise<ProfileData | null> {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("username, display_name, bio, total_public_aura")
+      .select("username, display_name, bio, total_public_aura, profile_image_url")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -630,6 +663,7 @@ export async function fetchProfileData(): Promise<ProfileData | null> {
     username: profile.username,
     displayName: profile.display_name || profile.username,
     bio: profile.bio,
+    avatarUrl: profile.profile_image_url,
     totalPublicAura: totalAura,
     streakDays: streak,
     postCount: allPosts.length,

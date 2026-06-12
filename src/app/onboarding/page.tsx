@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuraLogo } from "@/components/aura-logo";
 import { FormField } from "@/components/form-field";
+import { uploadImage } from "@/lib/api";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const auraTypes = [
@@ -38,6 +39,7 @@ export default function OnboardingPage() {
   const [form, setForm] = useState({ displayName: "", username: "", bio: "" });
   const [auraType, setAuraType] = useState<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -46,6 +48,7 @@ export default function OnboardingPage() {
     if (!file) return;
     if (avatarPreview) URL.revokeObjectURL(avatarPreview);
     setAvatarPreview(URL.createObjectURL(file));
+    setAvatarFile(file);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -62,13 +65,23 @@ export default function OnboardingPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
-        // TODO: upload the avatar to Supabase Storage and save its URL.
+        let avatarUrl: string | null = null;
+        if (avatarFile) {
+          const upload = await uploadImage("avatars", avatarFile);
+          if (upload.error) {
+            setErrors({ displayName: upload.error });
+            setSubmitting(false);
+            return;
+          }
+          avatarUrl = upload.url ?? null;
+        }
         const { error } = await supabase
           .from("profiles")
           .update({
             display_name: form.displayName.trim(),
             username: form.username.trim(),
             bio: form.bio.trim(),
+            ...(avatarUrl ? { profile_image_url: avatarUrl } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq("id", user.id);

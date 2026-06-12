@@ -11,6 +11,8 @@ export type PublicPost = {
   comments: number;
   isFriend: boolean;
   myVote?: "up" | "down" | null;
+  imageUrl?: string | null;
+  avatarUrl?: string | null;
 };
 
 // Placeholder feed until posts come from the database.

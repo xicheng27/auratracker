@@ -74,6 +74,14 @@ export function PrivatePostCard({ post }: { post: PrivatePost }) {
       </div>
 
       <p className="mt-3.5 leading-relaxed">“{post.description}”</p>
+      {post.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={post.imageUrl}
+          alt="Incident evidence"
+          className="mt-3 max-h-80 w-full rounded-xl border border-edge object-cover"
+        />
+      )}
 
       <div className="mt-4 flex gap-2">
         <button

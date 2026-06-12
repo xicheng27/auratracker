@@ -17,6 +17,7 @@ export type PrivatePost = {
   comments: number;
   timeAgo: string;
   myVote?: "up" | "down" | null;
+  imageUrl?: string | null;
 };
 
 // Placeholder group members until they come from the database, keyed by group id.

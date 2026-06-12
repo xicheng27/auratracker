@@ -31,8 +31,13 @@ export function PostCard({ post }: { post: PublicPost }) {
     <article className="rounded-2xl border border-edge bg-card p-5 transition-colors hover:bg-card-hover">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-background text-sm font-semibold">
-            {post.username[0].toUpperCase()}
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-edge bg-background text-sm font-semibold">
+            {post.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={post.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              post.username[0].toUpperCase()
+            )}
           </div>
           <div className="text-sm">
             <span className="font-medium">@{post.username}</span>
@@ -49,6 +54,14 @@ export function PostCard({ post }: { post: PublicPost }) {
         <p className="mt-1.5 text-sm leading-relaxed text-muted">
           {post.description}
         </p>
+        {post.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={post.imageUrl}
+            alt="Post attachment"
+            className="mt-3 max-h-80 w-full rounded-xl border border-edge object-cover"
+          />
+        )}
       </Link>
 
       <div className="mt-4 flex gap-2">

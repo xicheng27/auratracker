@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
-import { createIncident, fetchGroupDetail, getCurrentUser } from "@/lib/api";
+import { createIncident, fetchGroupDetail, getCurrentUser, uploadImage } from "@/lib/api";
 import type { GroupMember } from "@/lib/mock-group-detail";
 import type { Group } from "@/lib/mock-groups";
 
@@ -24,6 +24,7 @@ export default function CreateIncidentPage() {
   const [target, setTarget] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -86,6 +87,7 @@ export default function CreateIncidentPage() {
     if (!file) return;
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(URL.createObjectURL(file));
+    setImageFile(file);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -99,13 +101,23 @@ export default function CreateIncidentPage() {
       return;
     }
     setSubmitting(true);
+    let imageUrl: string | null = null;
+    if (imageFile) {
+      const upload = await uploadImage("post-images", imageFile);
+      if (upload.error) {
+        setError(upload.error);
+        setSubmitting(false);
+        return;
+      }
+      imageUrl = upload.url ?? null;
+    }
     const targetMember = members.find((m) => m.username === target);
-    // TODO: upload the evidence photo to Supabase Storage and save its URL.
     const { error: submitError } = await createIncident({
       groupId: id,
       targetUserId: targetMember?.userId ?? targetMember?.username ?? "",
       type: postType === "self" ? "self_post" : "friend_post",
       description: description.trim(),
+      imageUrl,
     });
     if (submitError) {
       setError(submitError);
@@ -279,6 +291,7 @@ export default function CreateIncidentPage() {
                   onClick={() => {
                     URL.revokeObjectURL(imagePreview);
                     setImagePreview(null);
+                    setImageFile(null);
                     if (fileInputRef.current) fileInputRef.current.value = "";
                   }}
                   className="absolute top-2 right-2 rounded-full bg-background/80 px-3 py-1 text-xs font-medium backdrop-blur transition-colors hover:bg-background"

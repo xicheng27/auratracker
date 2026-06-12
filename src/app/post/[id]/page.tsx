@@ -125,8 +125,13 @@ export default function PostDetailPage() {
         <article className="mt-4 rounded-2xl border border-edge bg-card p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-edge bg-background text-sm font-semibold">
-                {post.username[0].toUpperCase()}
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-edge bg-background text-sm font-semibold">
+                {post.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={post.avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  post.username[0].toUpperCase()
+                )}
               </div>
               <div className="text-sm">
                 <span className="font-medium">@{post.username}</span>
@@ -142,6 +147,14 @@ export default function PostDetailPage() {
             “{post.title}”
           </h1>
           <p className="mt-2 leading-relaxed text-muted">{post.description}</p>
+          {post.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={post.imageUrl}
+              alt="Post attachment"
+              className="mt-4 max-h-96 w-full rounded-xl border border-edge object-cover"
+            />
+          )}
 
           <div className="mt-5 flex gap-2">
             <button

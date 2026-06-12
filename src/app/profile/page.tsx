@@ -96,8 +96,17 @@ export default function ProfilePage() {
             <div className="flex items-center gap-4">
               <div className="relative flex h-16 w-16 items-center justify-center">
                 <span className="absolute inset-0 rounded-full bg-accent/30 blur-md aura-pulse" />
-                <span className="relative flex h-16 w-16 items-center justify-center rounded-full border border-edge bg-background text-xl font-bold">
-                  {profile.displayName[0]}
+                <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-edge bg-background text-xl font-bold">
+                  {profile.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={profile.avatarUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    profile.displayName[0]
+                  )}
                 </span>
               </div>
               <div>
