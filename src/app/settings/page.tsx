@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
 import { FormField } from "@/components/form-field";
@@ -76,6 +76,25 @@ export default function SettingsPage() {
   const [username, setUsername] = useState(mockProfile.username);
   const [bio, setBio] = useState(mockProfile.bio);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("username, display_name, bio")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile) {
+        setDisplayName(profile.display_name || profile.username);
+        setUsername(profile.username);
+        setBio(profile.bio);
+      }
+    });
+  }, []);
 
   const [privacy, setPrivacy] = useState({
     privateProfile: false,
@@ -95,9 +114,34 @@ export default function SettingsPage() {
   const [blocked, setBlocked] = useState(initialBlocked);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  function saveProfile(e: React.FormEvent) {
+  async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: persist profile changes once the backend exists.
+    setSaveError(null);
+    const supabase = getSupabaseBrowserClient();
+    if (supabase) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            display_name: displayName.trim(),
+            username: username.trim(),
+            bio: bio.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id);
+        if (error) {
+          setSaveError(
+            error.message.includes("unique")
+              ? "That username is taken."
+              : error.message,
+          );
+          return;
+        }
+      }
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -142,6 +186,11 @@ export default function SettingsPage() {
                 className="mt-1.5 w-full resize-none rounded-xl border border-edge bg-background px-4 py-2.5 text-sm outline-none transition-colors focus:border-accent"
               />
             </div>
+            {saveError && (
+              <p className="rounded-xl border border-negative/40 bg-background px-4 py-2.5 text-xs text-negative">
+                {saveError}
+              </p>
+            )}
             <button
               type="submit"
               className="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-background transition-colors hover:bg-accent-soft"

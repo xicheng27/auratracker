@@ -1,8 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BottomNav, TopNav } from "@/components/app-nav";
+import { fetchProfileData, type ProfileData } from "@/lib/api";
 import { formatAura } from "@/lib/aura";
-import { mockGroups } from "@/lib/mock-groups";
-import { auraTitle, mockProfile } from "@/lib/mock-profile";
+import { auraTitle } from "@/lib/mock-profile";
 
 function AuraChart({ history }: { history: number[] }) {
   const width = 600;
@@ -57,7 +60,30 @@ function AuraChart({ history }: { history: number[] }) {
 }
 
 export default function ProfilePage() {
-  const profile = mockProfile;
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProfileData().then((data) => {
+      setProfile(data);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading || !profile) {
+    return (
+      <>
+        <TopNav />
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5 pb-32">
+          <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
+            {loading ? "Reading your aura…" : "Log in to see your profile."}
+          </div>
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
+
   const title = auraTitle(profile.totalPublicAura);
 
   return (
@@ -183,7 +209,7 @@ export default function ProfilePage() {
             Group aura
           </h2>
           <ul className="mt-3 space-y-2">
-            {mockGroups.map((group) => (
+            {profile.groupAura.map((group) => (
               <li key={group.id}>
                 <Link
                   href={`/groups/${group.id}`}

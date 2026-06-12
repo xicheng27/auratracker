@@ -1,27 +1,32 @@
 "use client";
 
 import { useState } from "react";
+import { castPrivateVote, type Vote } from "@/lib/api";
 import { auraChange, formatAura, upVotePercent } from "@/lib/aura";
 import { CommentIcon } from "@/components/icons";
 import type { PrivatePost } from "@/lib/mock-group-detail";
 
 const PRIVATE_BASE_AURA = 50;
 
-type Vote = "up" | "down" | null;
-
 export function PrivatePostCard({ post }: { post: PrivatePost }) {
-  const [vote, setVote] = useState<Vote>(null);
+  const [vote, setVote] = useState<Vote>(post.myVote ?? null);
 
-  const upVotes = post.upVotes + (vote === "up" ? 1 : 0);
-  const downVotes = post.downVotes + (vote === "down" ? 1 : 0);
+  // Fetched counts already include the user's persisted vote; only offset
+  // when the local choice differs from what was fetched.
+  const initial = post.myVote ?? null;
+  const upVotes =
+    post.upVotes + (vote === "up" ? 1 : 0) - (initial === "up" ? 1 : 0);
+  const downVotes =
+    post.downVotes + (vote === "down" ? 1 : 0) - (initial === "down" ? 1 : 0);
   const score = auraChange(upVotes, downVotes, PRIVATE_BASE_AURA);
   const upPercent = upVotePercent(upVotes, downVotes);
   const gained = score >= 0;
   const isSelfPost = post.type === "self_post";
 
   function toggle(next: Exclude<Vote, null>) {
-    // TODO: persist the vote (one per member per post) once the backend exists.
-    setVote((prev) => (prev === next ? null : next));
+    const resolved = vote === next ? null : next;
+    setVote(resolved);
+    void castPrivateVote(post.id, resolved);
   }
 
   return (

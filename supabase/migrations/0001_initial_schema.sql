@@ -288,6 +288,30 @@ as $$
 $$;
 
 -- ============================================================
+-- Invite-code join: RLS hides groups from non-members, so joining by
+-- code needs definer rights. Returns the group id, or null for a bad code.
+-- ============================================================
+create or replace function public.join_group_with_code(code text)
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  gid uuid;
+begin
+  select id into gid from public.groups
+  where invite_code = upper(trim(code));
+  if gid is null or auth.uid() is null then
+    return null;
+  end if;
+  insert into public.group_members (group_id, user_id, role, status)
+  values (gid, auth.uid(), 'member', 'active')
+  on conflict (group_id, user_id) do update set status = 'active';
+  return gid;
+end;
+$$;
+
+-- ============================================================
 -- Vote tallying: keep counts and aura score on the post in sync.
 -- aura_score = round((up - down) / total * base); base 100 public, 50 private.
 -- ============================================================
@@ -524,10 +548,10 @@ create policy "users send requests" on public.friendships
 create policy "parties update friendship" on public.friendships
   for update using (auth.uid() in (requester_id, receiver_id));
 
--- aura history: own history only (group aura summaries come from
--- group_members, which members can already read).
-create policy "users see own aura history" on public.aura_history
-  for select using (auth.uid() = user_id);
+-- aura history: public-aura changes are public (they back the global
+-- leaderboard); private-group changes are visible to the owner only.
+create policy "public aura history is public" on public.aura_history
+  for select using (group_id is null or auth.uid() = user_id);
 
 -- reports: users file reports as themselves and see their own.
 create policy "users see own reports" on public.reports

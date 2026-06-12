@@ -1,26 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BottomNav, TopNav } from "@/components/app-nav";
 import {
-  mockNotifications,
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "@/lib/api";
+import {
   notificationIcons,
+  type AppNotification,
 } from "@/lib/mock-notifications";
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const unreadCount = notifications.filter((n) => n.unread).length;
 
+  useEffect(() => {
+    fetchNotifications().then(setNotifications);
+  }, []);
+
   function markRead(id: string) {
-    // TODO: persist read state once the backend exists.
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, unread: false } : n)),
     );
+    void markNotificationRead(id);
   }
 
   function markAllRead() {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    void markAllNotificationsRead();
   }
 
   return (

@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuraLogo } from "@/components/aura-logo";
+import { getCurrentUser, type CurrentUser } from "@/lib/api";
 import { formatAura } from "@/lib/aura";
 import {
   BellIcon,
@@ -13,14 +15,13 @@ import {
   TrophyIcon,
 } from "@/components/icons";
 
-// Placeholder until auth + profiles are wired up.
-const currentUser = {
-  username: "xicheng",
-  displayName: "Xi Cheng",
-  totalAura: 1240,
-};
-
 export function TopNav() {
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  useEffect(() => {
+    getCurrentUser().then(setCurrentUser);
+  }, []);
+
   return (
     <header className="sticky top-0 z-20 border-b border-edge bg-background/85 backdrop-blur">
       <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
@@ -30,7 +31,7 @@ export function TopNav() {
             className="rounded-full border border-edge bg-card px-3 py-1.5 text-sm font-semibold"
             title="Your total public aura"
           >
-            ✦ {formatAura(currentUser.totalAura)}
+            ✦ {currentUser ? formatAura(currentUser.totalAura) : "—"}
           </span>
           <Link
             href="/notifications"
@@ -44,7 +45,7 @@ export function TopNav() {
             aria-label="Your profile"
             className="flex h-9 w-9 items-center justify-center rounded-full border border-edge bg-card text-sm font-semibold"
           >
-            {currentUser.displayName[0]}
+            {currentUser?.displayName[0] ?? "·"}
           </Link>
         </div>
       </div>

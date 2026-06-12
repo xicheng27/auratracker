@@ -1,26 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
 import { CommentIcon, ShareIcon } from "@/components/icons";
+import {
+  addPublicComment,
+  castPublicVote,
+  fetchPostDetail,
+  reportContent,
+  type Vote,
+} from "@/lib/api";
 import { auraChange, formatAura, upVotePercent } from "@/lib/aura";
-import { mockComments, type PostComment } from "@/lib/mock-comments";
-import { mockPosts } from "@/lib/mock-posts";
-
-type Vote = "up" | "down" | null;
+import type { PostComment } from "@/lib/mock-comments";
+import type { PublicPost } from "@/lib/mock-posts";
 
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const post = mockPosts.find((p) => p.id === id);
 
+  const [post, setPost] = useState<PublicPost | null>(null);
+  const [loading, setLoading] = useState(true);
   const [vote, setVote] = useState<Vote>(null);
-  const [comments, setComments] = useState<PostComment[]>(
-    () => mockComments[id] ?? [],
-  );
+  const [comments, setComments] = useState<PostComment[]>([]);
   const [draft, setDraft] = useState("");
   const [reported, setReported] = useState(false);
+
+  useEffect(() => {
+    fetchPostDetail(id).then((detail) => {
+      if (detail) {
+        setPost(detail.post);
+        setVote(detail.post.myVote ?? null);
+        setComments(detail.comments);
+      }
+      setLoading(false);
+    });
+  }, [id]);
+
+  if (loading) {
+    return (
+      <>
+        <TopNav />
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5 pb-32">
+          <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
+            Summoning aura…
+          </div>
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
 
   if (!post) {
     return (
@@ -48,8 +77,13 @@ export default function PostDetailPage() {
     );
   }
 
-  const upVotes = post.upVotes + (vote === "up" ? 1 : 0);
-  const downVotes = post.downVotes + (vote === "down" ? 1 : 0);
+  // Fetched counts already include the user's persisted vote; only offset
+  // when the local choice differs from what was fetched.
+  const initial = post.myVote ?? null;
+  const upVotes =
+    post.upVotes + (vote === "up" ? 1 : 0) - (initial === "up" ? 1 : 0);
+  const downVotes =
+    post.downVotes + (vote === "down" ? 1 : 0) - (initial === "down" ? 1 : 0);
   const totalVotes = upVotes + downVotes;
   const score = auraChange(upVotes, downVotes);
   const upPercent = upVotePercent(upVotes, downVotes);
@@ -57,20 +91,23 @@ export default function PostDetailPage() {
   const ratio = totalVotes === 0 ? 0 : (upVotes - downVotes) / totalVotes;
 
   function toggle(next: Exclude<Vote, null>) {
-    // TODO: persist the vote (one per user per post) once the backend exists.
-    setVote((prev) => (prev === next ? null : next));
+    const resolved = vote === next ? null : next;
+    setVote(resolved);
+    void castPublicVote(id, resolved);
   }
 
-  function handleComment(e: React.FormEvent) {
+  async function handleComment(e: React.FormEvent) {
     e.preventDefault();
     const text = draft.trim();
     if (!text) return;
-    // TODO: persist the comment once the backend exists.
-    setComments((prev) => [
-      ...prev,
-      { id: `local-${prev.length}`, username: "xicheng", timeAgo: "now", text },
-    ]);
     setDraft("");
+    const comment = await addPublicComment(id, text);
+    if (comment) setComments((prev) => [...prev, comment]);
+  }
+
+  function handleReport() {
+    setReported(true);
+    void reportContent("public_post", id);
   }
 
   return (
@@ -167,7 +204,7 @@ export default function PostDetailPage() {
             </button>
             <button
               type="button"
-              onClick={() => setReported(true)}
+              onClick={handleReport}
               disabled={reported}
               className="ml-auto transition-colors hover:text-foreground disabled:cursor-default"
             >

@@ -1,4 +1,5 @@
 export type GroupMember = {
+  userId?: string;
   username: string;
   displayName: string;
   role: "owner" | "admin" | "member";
@@ -15,6 +16,7 @@ export type PrivatePost = {
   downVotes: number;
   comments: number;
   timeAgo: string;
+  myVote?: "up" | "down" | null;
 };
 
 // Placeholder group members until they come from the database, keyed by group id.

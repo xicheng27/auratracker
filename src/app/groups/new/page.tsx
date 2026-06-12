@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { BottomNav, TopNav } from "@/components/app-nav";
+import { createGroup } from "@/lib/api";
 
 const groupIcons = ["✦", "🏛️", "📚", "🏀", "🎮", "🍜", "🦍", "🐸", "👑", "💀", "🔥", "🧊"];
 
@@ -30,6 +31,7 @@ export default function CreateGroupPage() {
   const [invited, setInvited] = useState<string[]>([]);
   const [nameError, setNameError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [groupId, setGroupId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   function toggleInvite(username: string) {
@@ -40,14 +42,26 @@ export default function CreateGroupPage() {
     );
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       setNameError("Your council needs a name.");
       return;
     }
-    // TODO: create the group and persist invites once the backend exists.
-    setInviteCode(generateInviteCode());
+    const code = generateInviteCode();
+    // TODO: send invites to selected friends once the friends system exists.
+    const { groupId: createdId, error } = await createGroup({
+      name: name.trim(),
+      description: description.trim(),
+      icon,
+      inviteCode: code,
+    });
+    if (error) {
+      setNameError(error);
+      return;
+    }
+    setGroupId(createdId ?? null);
+    setInviteCode(code);
   }
 
   async function copyCode() {
@@ -94,7 +108,7 @@ export default function CreateGroupPage() {
 
             <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
-                href="/groups/1"
+                href={groupId ? `/groups/${groupId}` : "/groups"}
                 className="w-full rounded-2xl bg-accent px-6 py-3 text-sm font-semibold text-background transition-colors hover:bg-accent-soft sm:w-auto"
               >
                 Open the group

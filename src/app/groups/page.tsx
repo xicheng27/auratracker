@@ -1,25 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
+import { fetchGroups, joinGroupByCode } from "@/lib/api";
 import { formatAura } from "@/lib/aura";
-import { mockGroups } from "@/lib/mock-groups";
+import type { Group } from "@/lib/mock-groups";
 
 export default function GroupsPage() {
+  const router = useRouter();
+  const [groups, setGroups] = useState<Group[] | null>(null);
   const [joinOpen, setJoinOpen] = useState(false);
   const [code, setCode] = useState("");
   const [joinMessage, setJoinMessage] = useState<string | null>(null);
 
-  function handleJoin(e: React.FormEvent) {
+  useEffect(() => {
+    fetchGroups().then(setGroups);
+  }, []);
+
+  async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = code.trim().toUpperCase();
     if (!/^[A-Z0-9]{4,10}$/.test(trimmed)) {
       setJoinMessage("Codes are 4–10 letters and numbers. Check with your friend.");
       return;
     }
-    // TODO: look up the invite code and join the group once the backend exists.
-    setJoinMessage(`No group found for “${trimmed}” yet. Codes go live with the backend.`);
+    const { groupId, error } = await joinGroupByCode(trimmed);
+    if (groupId) {
+      router.push(`/groups/${groupId}`);
+      return;
+    }
+    setJoinMessage(error ?? "Something went wrong. Try again.");
   }
 
   return (
@@ -100,13 +112,17 @@ export default function GroupsPage() {
 
         {/* Group cards */}
         <div className="mt-4 space-y-4">
-          {mockGroups.length === 0 ? (
+          {groups === null ? (
+            <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
+              Summoning councils…
+            </div>
+          ) : groups.length === 0 ? (
             <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
               No groups yet. Create one and start judging your friends
               properly.
             </div>
           ) : (
-            mockGroups.map((group) => (
+            groups.map((group) => (
               <Link
                 key={group.id}
                 href={`/groups/${group.id}`}

@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
+import { createPublicPost, hasPostedToday } from "@/lib/api";
 
 const categories = [
   "Social",
@@ -30,9 +31,11 @@ export default function CreatePublicPostPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [postedToday, setPostedToday] = useState(false);
 
-  // Placeholder until the daily-post check comes from the database.
-  const hasPostedToday = false;
+  useEffect(() => {
+    hasPostedToday().then(setPostedToday);
+  }, []);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -41,18 +44,28 @@ export default function CreatePublicPostPage() {
     setImagePreview(URL.createObjectURL(file));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
       setTitleError("Give your moment a title. The people need context.");
       return;
     }
     setSubmitting(true);
-    // TODO: create the post via the backend, enforcing one post per day.
+    // TODO: upload the image to Supabase Storage and save its URL.
+    const { error } = await createPublicPost({
+      title: title.trim(),
+      description: description.trim(),
+      category,
+    });
+    if (error) {
+      setTitleError(error);
+      setSubmitting(false);
+      return;
+    }
     router.push("/feed");
   }
 
-  if (hasPostedToday) {
+  if (postedToday) {
     return (
       <>
         <TopNav />

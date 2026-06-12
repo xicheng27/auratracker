@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
-import { mockMembers } from "@/lib/mock-group-detail";
-import { mockGroups } from "@/lib/mock-groups";
+import { createIncident, fetchGroupDetail, getCurrentUser } from "@/lib/api";
+import type { GroupMember } from "@/lib/mock-group-detail";
+import type { Group } from "@/lib/mock-groups";
 
-const currentUsername = "xicheng";
 const DESCRIPTION_MAX = 280;
 
 type PostType = "self" | "friend";
@@ -15,10 +15,9 @@ type PostType = "self" | "friend";
 export default function CreateIncidentPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const group = mockGroups.find((g) => g.id === id);
-  const members = (mockMembers[id] ?? []).filter(
-    (m) => m.username !== currentUsername,
-  );
+  const [group, setGroup] = useState<Group | null>(null);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [postType, setPostType] = useState<PostType>("self");
@@ -27,6 +26,34 @@ export default function CreateIncidentPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    Promise.all([fetchGroupDetail(id), getCurrentUser()]).then(
+      ([detail, user]) => {
+        if (detail) {
+          setGroup(detail.group);
+          setMembers(
+            detail.members.filter((m) => m.username !== user?.username),
+          );
+        }
+        setLoading(false);
+      },
+    );
+  }, [id]);
+
+  if (loading) {
+    return (
+      <>
+        <TopNav />
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5 pb-32">
+          <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
+            Summoning the council…
+          </div>
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
 
   if (!group) {
     return (
@@ -61,7 +88,7 @@ export default function CreateIncidentPage() {
     setImagePreview(URL.createObjectURL(file));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (postType === "friend" && !target) {
       setError("Pick whose aura is on trial.");
@@ -72,7 +99,19 @@ export default function CreateIncidentPage() {
       return;
     }
     setSubmitting(true);
-    // TODO: create the private post (poster + target) once the backend exists.
+    const targetMember = members.find((m) => m.username === target);
+    // TODO: upload the evidence photo to Supabase Storage and save its URL.
+    const { error: submitError } = await createIncident({
+      groupId: id,
+      targetUserId: targetMember?.userId ?? targetMember?.username ?? "",
+      type: postType === "self" ? "self_post" : "friend_post",
+      description: description.trim(),
+    });
+    if (submitError) {
+      setError(submitError);
+      setSubmitting(false);
+      return;
+    }
     router.push(`/groups/${id}`);
   }
 

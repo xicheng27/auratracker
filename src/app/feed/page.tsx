@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BottomNav, TopNav } from "@/components/app-nav";
 import { PostCard } from "@/components/post-card";
+import { fetchPublicPosts, hasPostedToday } from "@/lib/api";
 import { auraChange } from "@/lib/aura";
-import { mockPosts, type PublicPost } from "@/lib/mock-posts";
+import type { PublicPost } from "@/lib/mock-posts";
 
 const filters = [
   "Trending",
@@ -45,16 +46,22 @@ function applyFilter(posts: PublicPost[], filter: Filter): PublicPost[] {
 
 export default function FeedPage() {
   const [filter, setFilter] = useState<Filter>("Trending");
-  // Placeholder until the daily-post check comes from the database.
-  const hasPostedToday = false;
-  const posts = applyFilter(mockPosts, filter);
+  const [allPosts, setAllPosts] = useState<PublicPost[] | null>(null);
+  const [postedToday, setPostedToday] = useState(false);
+
+  useEffect(() => {
+    fetchPublicPosts().then(setAllPosts);
+    hasPostedToday().then(setPostedToday);
+  }, []);
+
+  const posts = applyFilter(allPosts ?? [], filter);
 
   return (
     <>
       <TopNav />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5 pb-32">
         {/* Daily post prompt */}
-        {hasPostedToday ? (
+        {postedToday ? (
           <div className="rounded-2xl border border-edge bg-card p-4 text-sm text-muted">
             You’ve already posted your public aura moment today. Come back
             tomorrow.
@@ -99,7 +106,11 @@ export default function FeedPage() {
 
         {/* Feed */}
         <div className="mt-4 space-y-4">
-          {posts.length === 0 ? (
+          {allPosts === null ? (
+            <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
+              Summoning aura…
+            </div>
+          ) : posts.length === 0 ? (
             <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
               Nothing here yet. Your friends are keeping a low profile.
             </div>

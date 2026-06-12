@@ -10,6 +10,7 @@ export type PublicPost = {
   downVotes: number;
   comments: number;
   isFriend: boolean;
+  myVote?: "up" | "down" | null;
 };
 
 // Placeholder feed until posts come from the database.

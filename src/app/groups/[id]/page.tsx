@@ -1,26 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
 import { PrivatePostCard } from "@/components/private-post-card";
+import { fetchGroupDetail, getCurrentUser } from "@/lib/api";
 import { formatAura } from "@/lib/aura";
-import { mockMembers, mockPrivatePosts } from "@/lib/mock-group-detail";
-import { mockGroups } from "@/lib/mock-groups";
+import type { GroupMember, PrivatePost } from "@/lib/mock-group-detail";
+import type { Group } from "@/lib/mock-groups";
 
 const tabs = ["Feed", "Leaderboard", "Members"] as const;
 type Tab = (typeof tabs)[number];
-
-const currentUsername = "xicheng";
 
 const medals = ["🥇", "🥈", "🥉"];
 
 export default function GroupDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const group = mockGroups.find((g) => g.id === id);
   const [tab, setTab] = useState<Tab>("Feed");
   const [copied, setCopied] = useState(false);
+  const [group, setGroup] = useState<Group | null>(null);
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [posts, setPosts] = useState<PrivatePost[]>([]);
+  const [currentUsername, setCurrentUsername] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([fetchGroupDetail(id), getCurrentUser()]).then(
+      ([detail, user]) => {
+        if (detail) {
+          setGroup(detail.group);
+          setGroupMembers(detail.members);
+          setPosts(detail.posts);
+        }
+        if (user) setCurrentUsername(user.username);
+        setLoading(false);
+      },
+    );
+  }, [id]);
+
+  if (loading) {
+    return (
+      <>
+        <TopNav />
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5 pb-32">
+          <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
+            Summoning the council…
+          </div>
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
 
   if (!group) {
     return (
@@ -48,8 +79,7 @@ export default function GroupDetailPage() {
     );
   }
 
-  const members = [...(mockMembers[id] ?? [])].sort((a, b) => b.aura - a.aura);
-  const posts = mockPrivatePosts[id] ?? [];
+  const members = [...groupMembers].sort((a, b) => b.aura - a.aura);
 
   async function copyCode() {
     if (!group) return;

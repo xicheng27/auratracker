@@ -1,20 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BottomNav, TopNav } from "@/components/app-nav";
-import { formatAura } from "@/lib/aura";
-import { mockMembers } from "@/lib/mock-group-detail";
-import { mockGroups } from "@/lib/mock-groups";
 import {
-  mockRankings,
-  mostControversialPost,
-  type RankedUser,
-} from "@/lib/mock-leaderboard";
+  fetchGroupDetail,
+  fetchGroups,
+  fetchLeaderboard,
+  getCurrentUser,
+  type ControversialPost,
+} from "@/lib/api";
+import { formatAura } from "@/lib/aura";
+import type { GroupMember } from "@/lib/mock-group-detail";
+import type { Group } from "@/lib/mock-groups";
+import type { RankedUser } from "@/lib/mock-leaderboard";
 
 const tabs = ["Global", "Friends", "Groups"] as const;
 type Tab = (typeof tabs)[number];
 
-const currentUsername = "xicheng";
 const medals = ["🥇", "🥈", "🥉"];
 
 function RankRow({
@@ -23,14 +25,15 @@ function RankRow({
   username,
   value,
   sub,
+  isMe,
 }: {
   rank: number;
   name: string;
   username: string;
   value: number;
   sub?: string;
+  isMe: boolean;
 }) {
-  const isMe = username === currentUsername;
   return (
     <li
       className={`flex items-center gap-3 rounded-2xl border p-4 ${
@@ -118,15 +121,54 @@ function Highlights({ users }: { users: RankedUser[] }) {
 
 export default function LeaderboardPage() {
   const [tab, setTab] = useState<Tab>("Global");
-  const [groupId, setGroupId] = useState(mockGroups[0]?.id ?? "1");
+  const [groupId, setGroupId] = useState<string | null>(null);
+  const [rankings, setRankings] = useState<RankedUser[]>([]);
+  const [controversial, setControversial] = useState<ControversialPost>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [currentUsername, setCurrentUsername] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const global = [...mockRankings].sort((a, b) => b.totalAura - a.totalAura);
+  useEffect(() => {
+    Promise.all([fetchLeaderboard(), fetchGroups(), getCurrentUser()]).then(
+      ([board, userGroups, user]) => {
+        setRankings(board.rankings);
+        setControversial(board.controversial);
+        setGroups(userGroups);
+        setGroupId(userGroups[0]?.id ?? null);
+        if (user) setCurrentUsername(user.username);
+        setLoading(false);
+      },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!groupId) return;
+    fetchGroupDetail(groupId).then((detail) => {
+      setGroupMembers(
+        detail ? [...detail.members].sort((a, b) => b.aura - a.aura) : [],
+      );
+    });
+  }, [groupId]);
+
+  const global = [...rankings].sort((a, b) => b.totalAura - a.totalAura);
   const friends = global.filter(
     (u) => u.isFriend || u.username === currentUsername,
   );
-  const groupMembers = [...(mockMembers[groupId] ?? [])].sort(
-    (a, b) => b.aura - a.aura,
-  );
+
+  if (loading) {
+    return (
+      <>
+        <TopNav />
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5 pb-32">
+          <div className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
+            Ranking the aura economy…
+          </div>
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
 
   return (
     <>
@@ -161,19 +203,18 @@ export default function LeaderboardPage() {
             <Highlights users={tab === "Global" ? global : friends} />
 
             {/* Most controversial */}
-            {tab === "Global" && (
+            {tab === "Global" && controversial && (
               <div className="mt-2 rounded-2xl border border-edge bg-card p-4">
                 <p className="text-[10px] tracking-wide text-muted uppercase">
                   Most controversial today
                 </p>
                 <p className="mt-1.5 text-sm font-medium">
-                  “{mostControversialPost.title}”
+                  “{controversial.title}”
                 </p>
                 <p className="mt-1 text-xs text-muted">
-                  @{mostControversialPost.username} ·{" "}
-                  {mostControversialPost.upPercent}% gained /{" "}
-                  {100 - mostControversialPost.upPercent}% lost ·{" "}
-                  {mostControversialPost.totalVotes} votes
+                  @{controversial.username} · {controversial.upPercent}% gained
+                  / {100 - controversial.upPercent}% lost ·{" "}
+                  {controversial.totalVotes} votes
                 </p>
               </div>
             )}
@@ -186,7 +227,12 @@ export default function LeaderboardPage() {
                   name={user.displayName}
                   username={user.username}
                   value={user.totalAura}
-                  sub={`@${user.username} · 🔥 ${user.streakDays}d streak`}
+                  isMe={user.username === currentUsername}
+                  sub={
+                    user.streakDays > 0
+                      ? `@${user.username} · 🔥 ${user.streakDays}d streak`
+                      : `@${user.username}`
+                  }
                 />
               ))}
             </ol>
@@ -197,7 +243,7 @@ export default function LeaderboardPage() {
           <>
             {/* Group selector */}
             <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {mockGroups.map((group) => (
+              {groups.map((group) => (
                 <button
                   key={group.id}
                   type="button"
@@ -215,15 +261,22 @@ export default function LeaderboardPage() {
             </div>
 
             <ol className="mt-4 space-y-2">
-              {groupMembers.map((member, i) => (
-                <RankRow
-                  key={member.username}
-                  rank={i + 1}
-                  name={member.displayName}
-                  username={member.username}
-                  value={member.aura}
-                />
-              ))}
+              {groups.length === 0 ? (
+                <li className="rounded-2xl border border-edge bg-card p-8 text-center text-sm text-muted">
+                  Join a group to see its standings.
+                </li>
+              ) : (
+                groupMembers.map((member, i) => (
+                  <RankRow
+                    key={member.username}
+                    rank={i + 1}
+                    name={member.displayName}
+                    username={member.username}
+                    value={member.aura}
+                    isMe={member.username === currentUsername}
+                  />
+                ))
+              )}
             </ol>
           </>
         )}

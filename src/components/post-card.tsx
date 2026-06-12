@@ -2,24 +2,29 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { castPublicVote, type Vote } from "@/lib/api";
 import { auraChange, formatAura, upVotePercent } from "@/lib/aura";
 import { CommentIcon, ShareIcon } from "@/components/icons";
 import type { PublicPost } from "@/lib/mock-posts";
 
-type Vote = "up" | "down" | null;
-
 export function PostCard({ post }: { post: PublicPost }) {
-  const [vote, setVote] = useState<Vote>(null);
+  const [vote, setVote] = useState<Vote>(post.myVote ?? null);
 
-  const upVotes = post.upVotes + (vote === "up" ? 1 : 0);
-  const downVotes = post.downVotes + (vote === "down" ? 1 : 0);
+  // The fetched counts already include the user's persisted vote, so only
+  // offset them when the local choice differs from what was fetched.
+  const initial = post.myVote ?? null;
+  const upVotes =
+    post.upVotes + (vote === "up" ? 1 : 0) - (initial === "up" ? 1 : 0);
+  const downVotes =
+    post.downVotes + (vote === "down" ? 1 : 0) - (initial === "down" ? 1 : 0);
   const score = auraChange(upVotes, downVotes);
   const upPercent = upVotePercent(upVotes, downVotes);
   const gained = score >= 0;
 
   function toggle(next: Exclude<Vote, null>) {
-    // TODO: persist the vote (one per user per post) once the backend exists.
-    setVote((prev) => (prev === next ? null : next));
+    const resolved = vote === next ? null : next;
+    setVote(resolved);
+    void castPublicVote(post.id, resolved);
   }
 
   return (
