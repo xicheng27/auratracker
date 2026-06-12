@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
 import { FormField } from "@/components/form-field";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { mockProfile } from "@/lib/mock-profile";
 
 function Toggle({
@@ -263,8 +264,8 @@ export default function SettingsPage() {
           <div className="mt-4 space-y-3">
             <button
               type="button"
-              onClick={() => {
-                // TODO: clear the session once auth exists.
+              onClick={async () => {
+                await getSupabaseBrowserClient()?.auth.signOut();
                 router.push("/login");
               }}
               className="w-full rounded-xl border border-edge py-2.5 text-sm font-semibold transition-colors hover:bg-card-hover"

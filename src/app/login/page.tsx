@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AuraLogo } from "@/components/aura-logo";
 import { FormField } from "@/components/form-field";
 import { SocialButtons } from "@/components/social-buttons";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Errors = Partial<{
   identifier: string;
@@ -28,6 +29,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ identifier: "", password: "" });
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   function update(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,14 +38,63 @@ export default function LoginPage() {
     };
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nextErrors = validate(form);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     setSubmitting(true);
-    // TODO: replace with Supabase auth sign-in once the backend is wired up.
+    setAuthError(null);
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      // Mock mode: no backend configured yet.
+      router.push("/feed");
+      return;
+    }
+
+    const identifier = form.identifier.trim();
+    let email = identifier;
+
+    // Allow logging in by username by resolving it to the account email.
+    if (!identifier.includes("@")) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", identifier)
+        .maybeSingle();
+      if (!profile) {
+        setAuthError("No account found with that username.");
+        setSubmitting(false);
+        return;
+      }
+      const { data: emailData, error: emailError } = await supabase.rpc(
+        "get_email_for_username",
+        { lookup_username: identifier },
+      );
+      if (emailError || !emailData) {
+        setAuthError("Try logging in with your email instead.");
+        setSubmitting(false);
+        return;
+      }
+      email = emailData as string;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: form.password,
+    });
+
+    if (error) {
+      setAuthError(
+        error.message === "Invalid login credentials"
+          ? "Wrong email or password. Aura unverified."
+          : error.message,
+      );
+      setSubmitting(false);
+      return;
+    }
     router.push("/feed");
   }
 
@@ -107,6 +158,12 @@ export default function LoginPage() {
                 </Link>
               </div>
             </div>
+
+            {authError && (
+              <p className="rounded-xl border border-negative/40 bg-background px-4 py-2.5 text-xs text-negative">
+                {authError}
+              </p>
+            )}
 
             <button
               type="submit"

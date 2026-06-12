@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AuraLogo } from "@/components/aura-logo";
 import { FormField } from "@/components/form-field";
 import { SocialButtons } from "@/components/social-buttons";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Errors = Partial<{
   email: string;
@@ -60,6 +61,7 @@ export default function SignUpPage() {
   });
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   function update(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,14 +70,35 @@ export default function SignUpPage() {
     };
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nextErrors = validate(form);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     setSubmitting(true);
-    // TODO: replace with Supabase auth sign-up once the backend is wired up.
+    setAuthError(null);
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      // Mock mode: no backend configured yet.
+      router.push("/onboarding");
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email: form.email.trim(),
+      password: form.password,
+      options: {
+        data: { username: form.username.trim() },
+      },
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      setSubmitting(false);
+      return;
+    }
     router.push("/onboarding");
   }
 
@@ -152,6 +175,12 @@ export default function SignUpPage() {
               onChange={update("confirmPassword")}
               error={errors.confirmPassword}
             />
+
+            {authError && (
+              <p className="rounded-xl border border-negative/40 bg-background px-4 py-2.5 text-xs text-negative">
+                {authError}
+              </p>
+            )}
 
             <button
               type="submit"

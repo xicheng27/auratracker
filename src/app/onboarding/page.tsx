@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuraLogo } from "@/components/aura-logo";
 import { FormField } from "@/components/form-field";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const auraTypes = [
   { label: "Mysterious", emoji: "🌫️" },
@@ -47,14 +48,41 @@ export default function OnboardingPage() {
     setAvatarPreview(URL.createObjectURL(file));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nextErrors = validate(form);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     setSubmitting(true);
-    // TODO: persist profile via Supabase once the backend is wired up.
+
+    const supabase = getSupabaseBrowserClient();
+    if (supabase) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        // TODO: upload the avatar to Supabase Storage and save its URL.
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            display_name: form.displayName.trim(),
+            username: form.username.trim(),
+            bio: form.bio.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id);
+        if (error) {
+          setErrors({
+            username: error.message.includes("unique")
+              ? "That username is taken."
+              : error.message,
+          });
+          setSubmitting(false);
+          return;
+        }
+      }
+    }
     router.push("/feed");
   }
 
