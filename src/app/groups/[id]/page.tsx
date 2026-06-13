@@ -197,7 +197,15 @@ export default function GroupDetailPage() {
                 No incidents reported yet. Suspiciously quiet.
               </div>
             ) : (
-              posts.map((post) => <PrivatePostCard key={post.id} post={post} />)
+              posts.map((post, i) => (
+                <div
+                  key={post.id}
+                  className="enter-up"
+                  style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}
+                >
+                  <PrivatePostCard post={post} />
+                </div>
+              ))
             )}
           </div>
         )}

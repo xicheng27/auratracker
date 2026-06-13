@@ -115,7 +115,15 @@ export default function FeedPage() {
               Nothing here yet. Your friends are keeping a low profile.
             </div>
           ) : (
-            posts.map((post) => <PostCard key={post.id} post={post} />)
+            posts.map((post, i) => (
+              <div
+                key={post.id}
+                className="enter-up"
+                style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}
+              >
+                <PostCard post={post} />
+              </div>
+            ))
           )}
         </div>
       </main>
