@@ -53,3 +53,97 @@ body {
 .aura-float-delayed {
   animation: aura-float 6s ease-in-out 3s infinite;
 }
+
+/* Vote feedback: glow swell on a big aura gain. */
+@keyframes aura-gain {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+  35% {
+    box-shadow: 0 0 32px 4px rgba(255, 255, 255, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+/* Vote feedback: shake/glitch on a big aura loss. */
+@keyframes aura-loss {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-6px);
+  }
+  30% {
+    transform: translateX(5px);
+  }
+  45% {
+    transform: translateX(-4px);
+  }
+  60% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+.aura-gain {
+  animation: aura-gain 0.7s ease-out;
+}
+
+.aura-loss {
+  animation: aura-loss 0.5s ease-in-out;
+}
+
+/* Score count-up / pop when the aura number changes. */
+@keyframes aura-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.aura-pop {
+  animation: aura-pop 0.4s ease-out;
+}
+
+/* Confetti particle fall for a major aura gain. */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  animation: confetti-fall 0.9s ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-gain,
+  .aura-loss,
+  .aura-pop,
+  .confetti-piece,
+  .aura-pulse,
+  .aura-float,
+  .aura-float-delayed {
+    animation: none !important;
+  }
+}

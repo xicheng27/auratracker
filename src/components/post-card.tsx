@@ -4,11 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { castPublicVote, type Vote } from "@/lib/api";
 import { auraChange, formatAura, upVotePercent } from "@/lib/aura";
+import { ConfettiBurst } from "@/components/confetti-burst";
 import { CommentIcon, ShareIcon } from "@/components/icons";
 import type { PublicPost } from "@/lib/mock-posts";
 
 export function PostCard({ post }: { post: PublicPost }) {
   const [vote, setVote] = useState<Vote>(post.myVote ?? null);
+  const [feedback, setFeedback] = useState<"gain" | "loss" | null>(null);
+  const [burst, setBurst] = useState(0);
 
   // The fetched counts already include the user's persisted vote, so only
   // offset them when the local choice differs from what was fetched.
@@ -25,10 +28,26 @@ export function PostCard({ post }: { post: PublicPost }) {
     const resolved = vote === next ? null : next;
     setVote(resolved);
     void castPublicVote(post.id, resolved);
+
+    // Celebrate a fresh +Aura, shake on a fresh −Aura; no effect on un-voting.
+    if (resolved === "up") {
+      setFeedback("gain");
+      setBurst((n) => n + 1);
+    } else if (resolved === "down") {
+      setFeedback("loss");
+    } else {
+      setFeedback(null);
+    }
   }
 
   return (
-    <article className="rounded-2xl border border-edge bg-card p-5 transition-colors hover:bg-card-hover">
+    <article
+      onAnimationEnd={() => setFeedback(null)}
+      className={`relative rounded-2xl border border-edge bg-card p-5 transition-colors hover:bg-card-hover ${
+        feedback === "gain" ? "aura-gain" : feedback === "loss" ? "aura-loss" : ""
+      }`}
+    >
+      {feedback === "gain" && <ConfettiBurst key={burst} />}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-edge bg-background text-sm font-semibold">
@@ -100,7 +119,10 @@ export function PostCard({ post }: { post: PublicPost }) {
           />
         </div>
         <div className="mt-2 flex items-center justify-between text-sm">
-          <span className={`font-semibold ${gained ? "text-positive" : "text-negative"}`}>
+          <span
+            key={score}
+            className={`inline-block font-semibold aura-pop ${gained ? "text-positive" : "text-negative"}`}
+          >
             {formatAura(score)} aura
           </span>
           <span className="text-muted">
