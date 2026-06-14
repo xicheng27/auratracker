@@ -23,6 +23,7 @@ import {
 import { mockNotifications, type AppNotification } from "@/lib/mock-notifications";
 import { mockPosts, type PublicPost } from "@/lib/mock-posts";
 import { mockProfile } from "@/lib/mock-profile";
+import { compressImage, type MediaType, type SelectedMedia } from "@/lib/media";
 
 export type Vote = "up" | "down" | null;
 
@@ -111,6 +112,20 @@ export async function uploadImage(
   return { url: data.publicUrl };
 }
 
+/**
+ * Upload a photo or video for a post. Photos are compressed client-side
+ * first. Returns the public URL plus the resolved media type so callers can
+ * store both. No-op (returns the type only) in mock mode.
+ */
+export async function uploadMedia(
+  selected: SelectedMedia,
+): Promise<{ url?: string | null; type: MediaType; error?: string }> {
+  const file =
+    selected.type === "photo" ? await compressImage(selected.file) : selected.file;
+  const { url, error } = await uploadImage("post-images", file);
+  return { url: url ?? null, type: selected.type, error };
+}
+
 async function fetchFriendIdSet(userId: string): Promise<Set<string>> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return new Set();
@@ -137,7 +152,7 @@ export async function fetchPublicPosts(): Promise<PublicPost[]> {
     supabase
       .from("public_posts")
       .select(
-        "id, user_id, title, description, category, image_url, up_votes_count, down_votes_count, created_at, profiles(username, profile_image_url), public_comments(count)",
+        "id, user_id, title, description, category, image_url, media_url, media_type, up_votes_count, down_votes_count, created_at, profiles(username, profile_image_url), public_comments(count)",
       )
       .eq("status", "active")
       .order("created_at", { ascending: false })
@@ -177,6 +192,8 @@ export async function fetchPublicPosts(): Promise<PublicPost[]> {
     isFriend: friendIds.has(row.user_id),
     myVote: myVotes[row.id] ?? null,
     imageUrl: row.image_url,
+    mediaUrl: row.media_url ?? row.image_url ?? null,
+    mediaType: row.media_type ?? (row.image_url ? "photo" : null),
     avatarUrl: row.profiles?.profile_image_url ?? null,
   }));
   /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -200,7 +217,8 @@ export async function createPublicPost(input: {
   title: string;
   description: string;
   category: string | null;
-  imageUrl?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: MediaType | null;
 }): Promise<{ error?: string }> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return {};
@@ -211,7 +229,10 @@ export async function createPublicPost(input: {
     title: input.title,
     description: input.description,
     category: input.category,
-    image_url: input.imageUrl ?? null,
+    // image_url kept in sync for any legacy readers; photos only.
+    image_url: input.mediaType === "photo" ? (input.mediaUrl ?? null) : null,
+    media_url: input.mediaUrl ?? null,
+    media_type: input.mediaType ?? null,
   });
   if (error) {
     return {
@@ -259,7 +280,7 @@ export async function fetchPostDetail(
   const { data: row } = await supabase
     .from("public_posts")
     .select(
-      "id, title, description, category, image_url, up_votes_count, down_votes_count, created_at, profiles(username, profile_image_url)",
+      "id, title, description, category, image_url, media_url, media_type, up_votes_count, down_votes_count, created_at, profiles(username, profile_image_url)",
     )
     .eq("id", id)
     .neq("status", "removed")
@@ -304,6 +325,8 @@ export async function fetchPostDetail(
       isFriend: false,
       myVote,
       imageUrl: r.image_url,
+      mediaUrl: r.media_url ?? r.image_url ?? null,
+      mediaType: r.media_type ?? (r.image_url ? "photo" : null),
       avatarUrl: r.profiles?.profile_image_url ?? null,
     },
     comments: (commentRows ?? []).map((c: any) => ({
@@ -488,7 +511,7 @@ export async function fetchGroupDetail(id: string): Promise<{
     supabase
       .from("private_posts")
       .select(
-        "id, post_type, description, image_url, up_votes_count, down_votes_count, created_at, posted_by:profiles!private_posts_posted_by_user_id_fkey(username), target:profiles!private_posts_target_user_id_fkey(username), private_comments(count)",
+        "id, post_type, description, image_url, media_url, media_type, up_votes_count, down_votes_count, created_at, posted_by:profiles!private_posts_posted_by_user_id_fkey(username), target:profiles!private_posts_target_user_id_fkey(username), private_comments(count)",
       )
       .eq("group_id", id)
       .neq("status", "removed")
@@ -547,6 +570,8 @@ export async function fetchGroupDetail(id: string): Promise<{
       timeAgo: timeAgo(p.created_at),
       myVote: myVotes[p.id] ?? null,
       imageUrl: p.image_url,
+      mediaUrl: p.media_url ?? p.image_url ?? null,
+      mediaType: p.media_type ?? (p.image_url ? "photo" : null),
     })),
   };
   /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -580,7 +605,8 @@ export async function createIncident(input: {
   targetUserId: string;
   type: "self_post" | "friend_post";
   description: string;
-  imageUrl?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: MediaType | null;
 }): Promise<{ error?: string }> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return {};
@@ -592,7 +618,9 @@ export async function createIncident(input: {
     target_user_id: input.type === "self_post" ? user.id : input.targetUserId,
     post_type: input.type,
     description: input.description,
-    image_url: input.imageUrl ?? null,
+    image_url: input.mediaType === "photo" ? (input.mediaUrl ?? null) : null,
+    media_url: input.mediaUrl ?? null,
+    media_type: input.mediaType ?? null,
   });
   return error ? { error: error.message } : {};
 }

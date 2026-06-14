@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
 import { CommentIcon, ShareIcon } from "@/components/icons";
+import { PostMedia } from "@/components/post-media";
 import {
   addPublicComment,
   castPublicVote,
@@ -147,14 +148,11 @@ export default function PostDetailPage() {
             “{post.title}”
           </h1>
           <p className="mt-2 leading-relaxed text-muted">{post.description}</p>
-          {post.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={post.imageUrl}
-              alt="Post attachment"
-              className="mt-4 max-h-96 w-full rounded-xl border border-edge object-cover"
-            />
-          )}
+          <PostMedia
+            url={post.mediaUrl ?? post.imageUrl}
+            type={post.mediaType ?? (post.imageUrl ? "photo" : null)}
+            className="mt-4 max-h-96"
+          />
 
           <div className="mt-5 flex gap-2">
             <button

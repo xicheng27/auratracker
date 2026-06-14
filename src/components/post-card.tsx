@@ -6,6 +6,7 @@ import { castPublicVote, type Vote } from "@/lib/api";
 import { auraChange, formatAura, upVotePercent } from "@/lib/aura";
 import { ConfettiBurst } from "@/components/confetti-burst";
 import { CommentIcon, ShareIcon } from "@/components/icons";
+import { PostMedia } from "@/components/post-media";
 import type { PublicPost } from "@/lib/mock-posts";
 
 export function PostCard({ post }: { post: PublicPost }) {
@@ -73,15 +74,11 @@ export function PostCard({ post }: { post: PublicPost }) {
         <p className="mt-1.5 text-sm leading-relaxed text-muted">
           {post.description}
         </p>
-        {post.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={post.imageUrl}
-            alt="Post attachment"
-            className="mt-3 max-h-80 w-full rounded-xl border border-edge object-cover"
-          />
-        )}
       </Link>
+      <PostMedia
+        url={post.mediaUrl ?? post.imageUrl}
+        type={post.mediaType ?? (post.imageUrl ? "photo" : null)}
+      />
 
       <div className="mt-4 flex gap-2">
         <button

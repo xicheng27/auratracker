@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
-import { createIncident, fetchGroupDetail, getCurrentUser, uploadImage } from "@/lib/api";
+import { MediaCapture } from "@/components/media-capture";
+import {
+  createIncident,
+  fetchGroupDetail,
+  getCurrentUser,
+  uploadMedia,
+} from "@/lib/api";
+import { type SelectedMedia } from "@/lib/media";
 import type { GroupMember } from "@/lib/mock-group-detail";
 import type { Group } from "@/lib/mock-groups";
 
@@ -19,12 +26,10 @@ export default function CreateIncidentPage() {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [postType, setPostType] = useState<PostType>("self");
   const [target, setTarget] = useState<string | null>(null);
   const [description, setDescription] = useState("");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [media, setMedia] = useState<SelectedMedia | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -82,14 +87,6 @@ export default function CreateIncidentPage() {
     );
   }
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(URL.createObjectURL(file));
-    setImageFile(file);
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (postType === "friend" && !target) {
@@ -101,15 +98,18 @@ export default function CreateIncidentPage() {
       return;
     }
     setSubmitting(true);
-    let imageUrl: string | null = null;
-    if (imageFile) {
-      const upload = await uploadImage("post-images", imageFile);
+    // Nothing is uploaded until the user confirms submission here.
+    let mediaUrl: string | null = null;
+    let mediaType: SelectedMedia["type"] | null = null;
+    if (media) {
+      const upload = await uploadMedia(media);
       if (upload.error) {
         setError(upload.error);
         setSubmitting(false);
         return;
       }
-      imageUrl = upload.url ?? null;
+      mediaUrl = upload.url ?? null;
+      mediaType = upload.type;
     }
     const targetMember = members.find((m) => m.username === target);
     const { error: submitError } = await createIncident({
@@ -117,7 +117,8 @@ export default function CreateIncidentPage() {
       targetUserId: targetMember?.userId ?? targetMember?.username ?? "",
       type: postType === "self" ? "self_post" : "friend_post",
       description: description.trim(),
-      imageUrl,
+      mediaUrl,
+      mediaType,
     });
     if (submitError) {
       setError(submitError);
@@ -266,49 +267,8 @@ export default function CreateIncidentPage() {
             </div>
           </div>
 
-          {/* Image */}
-          <div className="rounded-2xl border border-edge bg-card p-5">
-            <p className="text-sm font-medium">
-              Evidence <span className="font-normal text-muted">(optional)</span>
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
-            />
-            {imagePreview ? (
-              <div className="relative mt-2.5 overflow-hidden rounded-xl border border-edge">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imagePreview}
-                  alt="Incident evidence preview"
-                  className="max-h-72 w-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    URL.revokeObjectURL(imagePreview);
-                    setImagePreview(null);
-                    setImageFile(null);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  className="absolute top-2 right-2 rounded-full bg-background/80 px-3 py-1 text-xs font-medium backdrop-blur transition-colors hover:bg-background"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-edge py-8 text-sm text-muted transition-colors hover:border-accent/50 hover:text-foreground"
-              >
-                + Add a photo
-              </button>
-            )}
-          </div>
+          {/* Media capture */}
+          <MediaCapture media={media} onChange={setMedia} />
 
           <button
             type="submit"

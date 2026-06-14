@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BottomNav, TopNav } from "@/components/app-nav";
-import { createPublicPost, hasPostedToday, uploadImage } from "@/lib/api";
+import { MediaCapture } from "@/components/media-capture";
+import { createPublicPost, hasPostedToday, uploadMedia } from "@/lib/api";
+import { CAPTION_PLACEHOLDERS, type SelectedMedia } from "@/lib/media";
 
 const categories = [
   "Social",
@@ -24,12 +26,10 @@ const DESCRIPTION_MAX = 280;
 
 export default function CreatePublicPostPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<string | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [media, setMedia] = useState<SelectedMedia | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [postedToday, setPostedToday] = useState(false);
@@ -38,14 +38,6 @@ export default function CreatePublicPostPage() {
     hasPostedToday().then(setPostedToday);
   }, []);
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(URL.createObjectURL(file));
-    setImageFile(file);
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
@@ -53,21 +45,25 @@ export default function CreatePublicPostPage() {
       return;
     }
     setSubmitting(true);
-    let imageUrl: string | null = null;
-    if (imageFile) {
-      const upload = await uploadImage("post-images", imageFile);
+    // Nothing is uploaded until the user confirms submission here.
+    let mediaUrl: string | null = null;
+    let mediaType: SelectedMedia["type"] | null = null;
+    if (media) {
+      const upload = await uploadMedia(media);
       if (upload.error) {
         setTitleError(upload.error);
         setSubmitting(false);
         return;
       }
-      imageUrl = upload.url ?? null;
+      mediaUrl = upload.url ?? null;
+      mediaType = upload.type;
     }
     const { error } = await createPublicPost({
       title: title.trim(),
       description: description.trim(),
       category,
-      imageUrl,
+      mediaUrl,
+      mediaType,
     });
     if (error) {
       setTitleError(error);
@@ -155,7 +151,7 @@ export default function CreatePublicPostPage() {
               id="description"
               rows={4}
               maxLength={DESCRIPTION_MAX}
-              placeholder="Set the scene. Details decide votes."
+              placeholder={CAPTION_PLACEHOLDERS[0]}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="mt-1.5 w-full resize-none rounded-xl border border-edge bg-background px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-muted/60 focus:border-accent"
@@ -192,50 +188,8 @@ export default function CreatePublicPostPage() {
             </div>
           </div>
 
-          {/* Image */}
-          <div className="rounded-2xl border border-edge bg-card p-5">
-            <p className="text-sm font-medium">
-              Photo evidence{" "}
-              <span className="font-normal text-muted">(optional)</span>
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
-            />
-            {imagePreview ? (
-              <div className="relative mt-2.5 overflow-hidden rounded-xl border border-edge">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imagePreview}
-                  alt="Post attachment preview"
-                  className="max-h-72 w-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    URL.revokeObjectURL(imagePreview);
-                    setImagePreview(null);
-                    setImageFile(null);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  className="absolute top-2 right-2 rounded-full bg-background/80 px-3 py-1 text-xs font-medium backdrop-blur transition-colors hover:bg-background"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-edge py-8 text-sm text-muted transition-colors hover:border-accent/50 hover:text-foreground"
-              >
-                + Add a photo
-              </button>
-            )}
-          </div>
+          {/* Media capture */}
+          <MediaCapture media={media} onChange={setMedia} />
 
           {/* Visibility + submit */}
           <div className="flex items-center justify-between rounded-2xl border border-edge bg-card p-5">

@@ -18,6 +18,8 @@ export type PrivatePost = {
   timeAgo: string;
   myVote?: "up" | "down" | null;
   imageUrl?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: "photo" | "video" | null;
 };
 
 // Placeholder group members until they come from the database, keyed by group id.

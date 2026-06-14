@@ -12,6 +12,8 @@ export type PublicPost = {
   isFriend: boolean;
   myVote?: "up" | "down" | null;
   imageUrl?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: "photo" | "video" | null;
   avatarUrl?: string | null;
 };
 

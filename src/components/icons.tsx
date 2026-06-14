@@ -93,3 +93,39 @@ export function ShareIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function CameraIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 8.5h2.5L8 6h8l1.5 2.5H20v11H4Z" />
+      <circle cx="12" cy="13.5" r="3.2" />
+    </Icon>
+  );
+}
+
+export function VideoIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="6.5" width="12" height="11" rx="2.5" />
+      <path d="m15.5 10.5 5-2.5v8l-5-2.5" />
+    </Icon>
+  );
+}
+
+export function GalleryIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <circle cx="9" cy="9" r="1.6" />
+      <path d="m5 17 4.5-4.5 4 4L16 13l3 3.5" />
+    </Icon>
+  );
+}
+
+export function TextIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 6h14M5 6v-.5M19 6v-.5M12 6v13M9.5 19h5" />
+    </Icon>
+  );
+}
